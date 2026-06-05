@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINKIFY — Plataforma de Servicio al Cliente</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+<!-- Chat en Vivo: Ably Realtime — funciona entre dispositivos distintos -->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--bg2:#161921;--bg3:#1e2330;--border:#2a3045;--border2:#323a52;
+  --text:#e8eaf0;--text2:#8b93a8;--text3:#555e78;
+  --red:#e53935;--red2:#ff5252;--green:#00c853;--blue:#2979ff;
+  --amber:#ffab00;--purple:#7c4dff;--teal:#00bfa5;--pink:#f06292;--accent:#e53935;
+  --sidebar:200px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:14px}
+/* TOPBAR */
+#topbar{position:fixed;top:0;left:0;right:0;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;z-index:100}
+.tb-logo{display:flex;align-items:center;gap:8px;padding:0 20px;border-right:1px solid var(--border);height:100%}
+.tb-logo svg{width:20px;height:20px}
+.tb-logo span{font-size:16px;font-weight:600;letter-spacing:.5px;color:#fff}
+.tb-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.5px}
+.tb-company{display:flex;align-items:center;gap:8px;padding:0 16px;border-right:1px solid var(--border);height:100%;cursor:pointer}
+.tb-company-dot{width:26px;height:26px;background:var(--red);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff}
+.tb-company span{font-size:13px;font-weight:500;color:#fff}
+.tb-search{flex:1;padding:0 20px;display:flex;align-items:center;gap:10px}
+.tb-search input{width:100%;max-width:400px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none}
+.tb-search input::placeholder{color:var(--text3)}
+.tb-search input:focus{border-color:var(--border2)}
+.tb-notif{width:8px;height:8px;background:var(--red2);border-radius:50%;margin-right:auto}
+.tb-user{display:flex;align-items:center;gap:8px;padding:0 20px;cursor:pointer}
+.tb-user-av{width:30px;height:30px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff}
+.tb-user span{font-size:13px;color:var(--text)}
+.tb-status{width:7px;height:7px;background:var(--green);border-radius:50%}
+/* LIVE INDICATOR */
+.tb-live{display:flex;align-items:center;gap:5px;padding:0 14px;border-left:1px solid var(--border);height:100%}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.live-label{font-size:11px;color:var(--green);font-weight:600}
+/* CLIENT PORTAL BUTTON */
+.btn-portal{background:rgba(0,200,83,.1);color:var(--green);border:1px solid rgba(0,200,83,.25);padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-portal:hover{background:rgba(0,200,83,.18)}
+/* LAYOUT */
+#layout{display:flex;margin-top:50px;height:calc(100vh - 50px)}
+/* SIDEBAR */
+#sidebar{width:var(--sidebar);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding-bottom:20px}
+.sb-profile{padding:16px 14px 12px;border-bottom:1px solid var(--border)}
+.sb-profile-av{width:32px;height:32px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;margin-bottom:8px}
+.sb-profile h3{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+.sb-profile p{font-size:11px;color:var(--text2)}
+.sb-plan{display:inline-block;margin-top:6px;background:rgba(41,121,255,.15);color:var(--blue);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;border:1px solid rgba(41,121,255,.3)}
+.sb-section{padding:14px 14px 6px;font-size:10px;font-weight:600;letter-spacing:1px;color:var(--text3);text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;color:var(--text2);font-size:13px;font-weight:400;transition:all .15s;position:relative}
+.sb-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.sb-item.active{color:#fff;background:rgba(229,57,53,.1)}
+.sb-item.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--red);border-radius:0 2px 2px 0}
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;min-width:20px;text-align:center}
+.sb-badge.blue{background:rgba(41,121,255,.2);color:var(--blue)}
+.sb-sla{padding:12px 14px;margin-top:auto;border-top:1px solid var(--border)}
+.sb-sla p{font-size:10px;font-weight:600;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
+.sla-row{margin-bottom:6px}
+.sla-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;color:var(--text2)}
+.sla-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.sla-fill{height:100%;border-radius:2px;transition:width .5s}
+/* MAIN */
+#main{flex:1;overflow-y:auto;overflow-x:hidden}
+/* PAGES */
+.page{display:none;padding:24px 28px;min-height:100%}
+.page.active{display:block}
+/* DASHBOARD */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-title h1{font-size:20px;font-weight:600;color:#fff}
+.page-title p{font-size:12px;color:var(--text2);margin-top:2px}
+.btn-primary{background:var(--red);color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:7px 14px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+.btn-secondary:hover{background:var(--border)}
+.btn-info{background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+/* METRIC CARDS */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden}
+.metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.metric-card.red::before{background:var(--red)}
+.metric-card.green::before{background:var(--green)}
+.metric-card.amber::before{background:var(--amber)}
+.metric-card.blue::before{background:var(--blue)}
+.metric-label{font-size:11px;color:var(--text2);margin-bottom:6px}
+.metric-value{font-size:26px;font-weight:600;color:#fff;font-family:'DM Mono',monospace;letter-spacing:-1px}
+.metric-delta{font-size:11px;margin-top:4px}
+.metric-delta.up{color:var(--green)}
+.metric-delta.down{color:var(--red2)}
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.card-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+/* BAR CHART */
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:80px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar-col label{font-size:10px;color:var(--text3)}
+.bar-col .bar-val{font-size:9px;color:var(--text2);font-family:'DM Mono',monospace}
+.bar{width:100%;border-radius:4px 4px 0 0;background:var(--red);opacity:.7;transition:opacity .2s;cursor:pointer;min-height:4px}
+.bar:hover{opacity:1}
+.bar.today{opacity:1;background:rgba(229,57,53,.5)}
+/* DONUT */
+.donut-wrap{display:flex;align-items:center;gap:16px}
+.donut{position:relative;width:80px;height:80px;flex-shrink:0}
+.donut svg{transform:rotate(-90deg)}
+.donut-legend{flex:1}
+.legend-item{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px;color:var(--text2)}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.legend-pct{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--text)}
+/* TYPE BARS */
+.type-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.type-label{width:80px;font-size:11px;color:var(--text2);flex-shrink:0}
+.type-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.type-bar-fill{height:100%;border-radius:3px}
+.type-pct{width:32px;text-align:right;font-size:11px;font-family:'DM Mono',monospace}
+/* BIG METRICS */
+.big-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.big-metric{text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 10px}
+.big-metric-val{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;margin-bottom:4px}
+.big-metric-val.red{color:var(--red2)}.big-metric-val.green{color:var(--green)}.big-metric-val.amber{color:var(--amber)}.big-metric-val.blue{color:var(--blue)}
+.big-metric-label{font-size:11px;color:var(--text2)}
+.big-metric-delta{font-size:10px;margin-top:2px;color:var(--green)}
+/* SOLICITUDES */
+.filters-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.filter-tab:hover{border-color:var(--border2);color:var(--text)}
+.filter-tab.active{background:var(--red);color:#fff;border-color:var(--red)}
+.filter-count{background:rgba(255,255,255,.2);border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700}
+.filter-tab:not(.active) .filter-count{background:var(--border);color:var(--text2)}
+.ticket-table{width:100%;border-collapse:collapse}
+.ticket-table th{padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0}
+.ticket-table td{padding:12px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ticket-table tr{cursor:pointer;transition:background .1s}
+.ticket-table tr:hover td{background:rgba(255,255,255,.02)}
+.ticket-table tr.selected td{background:rgba(229,57,53,.05)}
+.t-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.t-sub{font-size:11px;color:var(--text3)}
+.t-canal{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);white-space:nowrap}
+.t-canal-dot{width:7px;height:7px;border-radius:50%}
+.avatar{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff;flex-shrink:0}
+.status-badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600}
+.status-badge.urgente{background:rgba(229,57,53,.15);color:var(--red2);border:1px solid rgba(229,57,53,.3)}
+.status-badge.pendiente{background:rgba(255,171,0,.12);color:var(--amber);border:1px solid rgba(255,171,0,.25)}
+.status-badge.proceso{background:rgba(41,121,255,.12);color:var(--blue);border:1px solid rgba(41,121,255,.25)}
+.status-badge.resuelto{background:rgba(0,200,83,.1);color:var(--green);border:1px solid rgba(0,200,83,.2)}
+.urgente-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.urgente-dot.red{background:var(--red2)}.urgente-dot.amber{background:var(--amber)}.urgente-dot.blue{background:var(--blue)}.urgente-dot.grey{background:var(--text3)}
+/* TICKET PANEL */
+#ticket-panel{position:fixed;right:0;top:50px;bottom:0;width:420px;background:var(--bg2);border-left:1px solid var(--border);display:none;flex-direction:column;z-index:50;transform:translateX(100%);transition:transform .25s ease}
+#ticket-panel.open{display:flex;transform:translateX(0)}
+.tp-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.tp-close{background:transparent;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:0;line-height:1}
+.tp-close:hover{color:var(--text)}
+.tp-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.tp-section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.tp-field{margin-bottom:10px}
+.tp-field label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px}
+.tp-field p{font-size:13px;color:var(--text)}
+.tp-messages{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px}
+.msg{padding:8px 11px;border-radius:8px;max-width:85%;font-size:12px;line-height:1.5}
+.msg.incoming{background:var(--border);color:var(--text);align-self:flex-start}
+.msg.outgoing{background:var(--red);color:#fff;align-self:flex-end}
+.msg-time{font-size:10px;opacity:.6;margin-top:2px}
+.tp-reply{padding:14px 20px;border-top:1px solid var(--border)}
+.reply-input-wrap{display:flex;gap:8px;align-items:flex-end}
+.reply-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;resize:none;min-height:70px;max-height:120px}
+.reply-input:focus{border-color:var(--border2)}
+.reply-input::placeholder{color:var(--text3)}
+.reply-actions{display:flex;gap:6px;margin-top:8px;align-items:center}
+/* CANALES */
+.canal-list{display:flex;flex-direction:column;gap:10px}
+.canal-item{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s}
+.canal-item:hover{border-color:var(--border2)}
+.canal-item.active-canal{border-color:rgba(0,200,83,.3)}
+.canal-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.canal-info{flex:1}
+.canal-info h3{font-size:14px;font-weight:600;color:#fff;margin-bottom:2px}
+.canal-info .canal-sub{font-size:12px;color:var(--text2)}
+.canal-info .canal-stats{font-size:11px;color:var(--text3);margin-top:3px}
+.canal-status{font-size:12px;font-weight:600;color:var(--green);display:flex;align-items:center;gap:5px}
+.canal-status::before{content:'';width:7px;height:7px;background:var(--green);border-radius:50%;display:inline-block}
+/* CANAL CHAT PANEL */
+#canal-chat{position:fixed;right:0;top:50px;bottom:0;width:460px;background:var(--bg2);border-left:1px solid var(--border);display:none;flex-direction:column;z-index:50;transform:translateX(100%);transition:transform .25s ease}
+#canal-chat.open{display:flex;transform:translateX(0)}
+.cc-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cc-title{font-size:14px;font-weight:600;color:#fff}
+.cc-sub{font-size:11px;color:var(--text3)}
+.cc-close{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:18px}
+.cc-contacts{width:160px;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.cc-contact{padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
+.cc-contact:hover{background:rgba(255,255,255,.03)}
+.cc-contact.active{background:rgba(229,57,53,.08)}
+.cc-contact-name{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px}
+.cc-contact-preview{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.cc-contact-time{font-size:10px;color:var(--text3)}
+.cc-body{flex:1;display:flex}
+.cc-msgs-area{flex:1;display:flex;flex-direction:column}
+.cc-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--bg3)}
+.cc-input-area{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;background:var(--bg2)}
+.cc-textarea{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:none;min-height:60px}
+.cc-textarea:focus{border-color:var(--border2)}
+.cc-textarea::placeholder{color:var(--text3)}
+/* EQUIPO */
+.team-list{display:flex;flex-direction:column;gap:8px}
+.team-item{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:14px;transition:border-color .15s;cursor:pointer}
+.team-item:hover{border-color:var(--border2)}
+.team-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.team-info{flex:1}
+.team-info h3{font-size:14px;font-weight:600;color:#fff;margin-bottom:1px}
+.team-role{font-size:11px;color:var(--text2);margin-left:8px}
+.team-cases{font-size:12px;color:var(--text3);margin-top:2px}
+.team-eff{flex:0 0 180px}
+.team-eff-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;justify-content:space-between}
+.eff-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.eff-fill{height:100%;border-radius:3px}
+.online-badge{font-size:11px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.online-badge.on{color:var(--green)}.online-badge.off{color:var(--text3)}
+.online-badge::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block}
+.online-badge.on::before{background:var(--green)}.online-badge.off::before{background:var(--text3)}
+/* REPORTES */
+.reports-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.rep-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.rep-val{font-size:28px;font-weight:700;font-family:'DM Mono',monospace;margin-bottom:4px}
+.rep-label{font-size:11px;color:var(--text2)}
+.rep-delta{font-size:11px;margin-top:3px}
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);transform:translateY(80px);opacity:0;transition:all .3s ease;z-index:999;display:flex;align-items:center;gap:8px;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast .toast-icon{font-size:16px}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;width:480px;max-width:95vw}
+.modal h2{font-size:16px;font-weight:600;color:#fff;margin-bottom:16px}
+.modal-field{margin-bottom:14px}
+.modal-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:6px}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none}
+.modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--border2)}
+.modal-field select option{background:var(--bg3)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#44527a}
+
+/* ===================== NUEVOS ESTILOS ===================== */
+
+/* MANUALES PAGE */
+.manuales-section{margin-bottom:28px}
+.manuales-section-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.manuales-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.manuals-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.manual-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .2s,transform .15s;position:relative}
+.manual-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.manual-card-icon{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px}
+.manual-card h4{font-size:13px;font-weight:600;color:#fff;margin-bottom:4px}
+.manual-card p{font-size:11px;color:var(--text3);line-height:1.5}
+.manual-card-meta{margin-top:10px;display:flex;align-items:center;justify-content:space-between}
+.manual-card-meta span{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
+.manual-card-actions{display:flex;gap:6px}
+.manual-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.2)}
+.manual-badge.new{background:rgba(0,200,83,.12);color:var(--green);border-color:rgba(0,200,83,.25)}
+.manual-del-btn{width:22px;height:22px;background:rgba(229,57,53,.12);border:1px solid rgba(229,57,53,.2);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red2);transition:background .15s}
+.manual-del-btn:hover{background:rgba(229,57,53,.25)}
+/* UPLOAD DROP ZONE */
+.upload-zone{border:2px dashed var(--border2);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(41,121,255,.02)}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--blue);background:rgba(41,121,255,.06)}
+.upload-zone-icon{font-size:36px;margin-bottom:10px}
+.upload-zone h3{font-size:14px;font-weight:600;color:#fff;margin-bottom:5px}
+.upload-zone p{font-size:12px;color:var(--text3)}
+.upload-zone input{display:none}
+.upload-zone .upload-types{display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.upload-type-tag{font-size:10px;font-weight:600;padding:3px 10px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:10px;display:none}
+.progress-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .3s}
+
+/* CHAT EN VIVO - SECCIÓN REAL-TIME */
+.live-chat-banner{background:linear-gradient(135deg,rgba(0,200,83,.08),rgba(41,121,255,.05));border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.live-banner-left{display:flex;align-items:center;gap:10px}
+.live-banner-dot{width:10px;height:10px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
+.live-banner-text h4{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+.live-banner-text p{font-size:11px;color:var(--text2)}
+.live-session-id{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);background:var(--bg3);padding:3px 10px;border-radius:6px;border:1px solid var(--border)}
+.live-clients-count{font-size:13px;font-weight:600;color:var(--green)}
+
+/* TYPING INDICATOR */
+.typing-indicator{display:none;align-self:flex-start;padding:8px 12px;background:var(--border);border-radius:8px;font-size:11px;color:var(--text3)}
+.typing-indicator.show{display:flex;align-items:center;gap:4px}
+.typing-dot{width:5px;height:5px;background:var(--text3);border-radius:50%;animation:typing-bounce .8s infinite}
+.typing-dot:nth-child(2){animation-delay:.15s}
+.typing-dot:nth-child(3){animation-delay:.3s}
+@keyframes typing-bounce{0%,80%,100%{transform:scale(.8);opacity:.5}40%{transform:scale(1.2);opacity:1}}
+
+/* WIDGET DE CLIENTES EN VIVO */
+.live-chat-widget{position:fixed;bottom:70px;right:24px;width:340px;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:300;display:none;flex-direction:column;overflow:hidden}
+.live-chat-widget.open{display:flex}
+.lcw-header{background:var(--red);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+.lcw-header h4{font-size:14px;font-weight:600;color:#fff}
+.lcw-header p{font-size:11px;color:rgba(255,255,255,.7)}
+.lcw-close{background:transparent;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:16px}
+.lcw-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;max-height:300px;background:var(--bg3)}
+.lcw-input-area{padding:10px 14px;border-top:1px solid var(--border);background:var(--bg2);display:flex;gap:8px}
+.lcw-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;outline:none}
+.lcw-input:focus{border-color:var(--border2)}
+.lcw-send{background:var(--red);border:none;border-radius:8px;padding:8px 14px;color:#fff;font-size:12px;cursor:pointer}
+
+/* PORTAL CLIENT MODAL */
+#client-portal-modal .modal{width:560px;max-height:80vh;overflow-y:auto}
+.client-link-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.client-link-url{flex:1;font-family:'DM Mono',monospace;font-size:12px;color:var(--teal);word-break:break-all}
+.qr-placeholder{width:120px;height:120px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:40px;flex-shrink:0}
+.portal-steps{margin-top:16px}
+.portal-step{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.step-num{width:22px;height:22px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px}
+.step-text h5{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+.step-text p{font-size:12px;color:var(--text2)}
+/* CONNECTION STATUS BADGE */
+.conn-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:600}
+.conn-badge.online{background:rgba(0,200,83,.12);color:var(--green);border:1px solid rgba(0,200,83,.25)}
+.conn-badge.offline{background:rgba(229,57,53,.12);color:var(--red2);border:1px solid rgba(229,57,53,.25)}
+.conn-badge.connecting{background:rgba(255,171,0,.12);color:var(--amber);border:1px solid rgba(255,171,0,.25)}
+.conn-badge::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block;background:currentColor}
+/* NEW MESSAGE NOTIFICATION */
+.new-msg-notif{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(0);background:var(--green);color:#000;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:500;animation:slideup .3s ease;display:none}
+.new-msg-notif.show{display:block}
+@keyframes slideup{from{transform:translateX(-50%) translateY(20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+
+/* CHAT BUBBLE FAB */
+#chat-fab{position:fixed;bottom:24px;right:24px;width:50px;height:50px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,200,83,.4);z-index:400;border:none;font-size:22px;transition:transform .2s}
+#chat-fab:hover{transform:scale(1.08)}
+#chat-fab-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:10px;display:none}
+</style>
+</head>
+<body>
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="tb-logo">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="5" cy="12" r="3" fill="#e53935"/><circle cx="19" cy="6" r="3" fill="#e53935"/><circle cx="19" cy="18" r="3" fill="#e53935"/><line x1="8" y1="12" x2="16" y2="7" stroke="#e53935" stroke-width="1.5"/><line x1="8" y1="12" x2="16" y2="17" stroke="#e53935" stroke-width="1.5"/></svg>
+    <span>LINKIFY</span>
+    <span class="tb-badge">PRO</span>
+  </div>
+  <div class="tb-company"><div class="tb-company-dot">C</div><span>Cemaco Guatemala</span></div>
+  <div class="tb-search">
+    <input type="text" placeholder="Buscar orden, cliente, producto..." id="search-input" oninput="handleSearch(this.value)">
+    <button class="btn-portal" onclick="openClientPortal()">🔗 Portal cliente</button>
+  </div>
+  <div class="tb-notif"></div>
+  <div class="tb-live">
+    <div class="live-dot"></div>
+    <span class="live-label" id="live-clients-tb">0 en vivo</span>
+  </div>
+  <div class="tb-user"><div class="tb-user-av">LR</div><span>Luisa Ramírez</span><div class="tb-status"></div></div>
+</div>
+
+<div id="layout">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sb-profile">
+      <div class="sb-profile-av">CE</div>
+      <h3>Cemaco</h3>
+      <p>Casa y Hogar · Guatemala</p>
+      <span class="sb-plan">Plan Empresarial Plus</span>
+    </div>
+    <div class="sb-section">Principal</div>
+    <div class="sb-item active" onclick="navigate('dashboard',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="sb-item" onclick="navigate('solicitudes',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      Solicitudes
+      <span class="sb-badge" id="badge-solicitudes">9</span>
+    </div>
+    <div class="sb-item" onclick="navigate('reportes',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reportes
+    </div>
+    <div class="sb-section">Configuración</div>
+    <div class="sb-item" onclick="navigate('canales',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M8.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Canales
+      <span class="sb-badge blue">5</span>
+    </div>
+    <div class="sb-item" onclick="navigate('equipo',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Equipo
+      <span class="sb-badge blue">6</span>
+    </div>
+    <div class="sb-item" onclick="navigate('manuales',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Manuales
+      <span class="sb-badge blue" id="badge-manuales">3</span>
+    </div>
+    <div class="sb-sla">
+      <p>SLA del Día</p>
+      <div class="sla-row">
+        <div class="sla-label"><span>Respuesta &lt;4h</span><span style="color:var(--green);font-family:'DM Mono',monospace">82%</span></div>
+        <div class="sla-bar"><div class="sla-fill" style="width:82%;background:var(--green)"></div></div>
+      </div>
+      <div class="sla-row">
+        <div class="sla-label"><span>Resolución &lt;48h</span><span style="color:var(--amber);font-family:'DM Mono',monospace">67%</span></div>
+        <div class="sla-bar"><div class="sla-fill" style="width:67%;background:var(--amber)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div class="page-title"><h1>Panel de control — Cemaco</h1><p id="today-date">Cargando...</p></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="conn-badge connecting" id="firebase-status">Conectando...</span>
+          <button class="btn-info">📍 6 sucursales activas</button>
+        </div>
+      </div>
+      <!-- LIVE CHAT BANNER -->
+      <div class="live-chat-banner">
+        <div class="live-banner-left">
+          <div class="live-banner-dot"></div>
+          <div class="live-banner-text">
+            <h4>Chat en tiempo real activo</h4>
+            <p>Los clientes pueden conectarse desde su dispositivo ahora mismo</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="text-align:right">
+            <div class="live-clients-count" id="live-count">0 clientes</div>
+            <div style="font-size:10px;color:var(--text3)">en línea ahora</div>
+          </div>
+          <button class="btn-primary" style="font-size:12px;padding:7px 14px" onclick="openClientPortal()">🔗 Compartir enlace</button>
+        </div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-card red"><div class="metric-label">Solicitudes hoy</div><div class="metric-value" id="m-solicitudes">83</div><div class="metric-delta up">+9% vs ayer</div></div>
+        <div class="metric-card amber"><div class="metric-label">Sin atender</div><div class="metric-value">9</div><div class="metric-delta down">−3 vs ayer</div></div>
+        <div class="metric-card blue"><div class="metric-label">Tiempo prom. respuesta</div><div class="metric-value">3.1h</div><div class="metric-delta down">↑ vs meta 2h</div></div>
+        <div class="metric-card green"><div class="metric-label">Resueltas hoy</div><div class="metric-value">61</div><div class="metric-delta up">+11 vs ayer</div></div>
+      </div>
+      <div class="grid-3">
+        <div class="card"><div class="card-title">Solicitudes últimos 7 días — total: 524</div><div class="bar-chart" id="week-chart"></div></div>
+        <div class="card"><div class="card-title">Por canal de entrada</div>
+          <div class="donut-wrap">
+            <div class="donut"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="30" fill="none" stroke="#2a3045" stroke-width="12"/><circle cx="40" cy="40" r="30" fill="none" stroke="#25D366" stroke-width="12" stroke-dasharray="56.5 131.9" stroke-dashoffset="0"/><circle cx="40" cy="40" r="30" fill="none" stroke="#e53935" stroke-width="12" stroke-dasharray="37.7 150.7" stroke-dashoffset="-56.5"/><circle cx="40" cy="40" r="30" fill="none" stroke="#2979ff" stroke-width="12" stroke-dasharray="30.2 158.2" stroke-dashoffset="-94.2"/><circle cx="40" cy="40" r="30" fill="none" stroke="#7c4dff" stroke-width="12" stroke-dasharray="26.4 162" stroke-dashoffset="-124.4"/><circle cx="40" cy="40" r="30" fill="none" stroke="#ffab00" stroke-width="12" stroke-dasharray="37.7 150.7" stroke-dashoffset="-150.8"/></svg></div>
+            <div class="donut-legend">
+              <div class="legend-item"><span class="legend-dot" style="background:#25D366"></span>WhatsApp<span class="legend-pct">30%</span></div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>Tienda<span class="legend-pct">20%</span></div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Correo<span class="legend-pct">16%</span></div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--purple)"></span>Formulario<span class="legend-pct">14%</span></div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span>Redes<span class="legend-pct">20%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title">Por tipo de solicitud</div>
+          <div class="type-row"><span class="type-label">Devoluciones</span><div class="type-bar-wrap"><div class="type-bar-fill" style="width:32%;background:var(--red)"></div></div><span class="type-pct" style="color:var(--red2)">32%</span></div>
+          <div class="type-row"><span class="type-label">Entregas</span><div class="type-bar-wrap"><div class="type-bar-fill" style="width:27%;background:var(--amber)"></div></div><span class="type-pct" style="color:var(--amber)">27%</span></div>
+          <div class="type-row"><span class="type-label">Consultas</span><div class="type-bar-wrap"><div class="type-bar-fill" style="width:21%;background:var(--blue)"></div></div><span class="type-pct" style="color:var(--blue)">21%</span></div>
+          <div class="type-row"><span class="type-label">Garantías</span><div class="type-bar-wrap"><div class="type-bar-fill" style="width:12%;background:var(--purple)"></div></div><span class="type-pct" style="color:var(--purple)">12%</span></div>
+          <div class="type-row"><span class="type-label">Otras</span><div class="type-bar-wrap"><div class="type-bar-fill" style="width:8%;background:var(--text3)"></div></div><span class="type-pct" style="color:var(--text2)">8%</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="big-metric"><div class="big-metric-val red">82%</div><div class="big-metric-label">Satisfacción CSAT</div><div class="big-metric-delta">↑ 1 vs mes ant.</div></div>
+          <div class="big-metric"><div class="big-metric-val green">91%</div><div class="big-metric-label">Tasa de resolución</div><div class="big-metric-delta">↑ 3%</div></div>
+          <div class="big-metric"><div class="big-metric-val amber">1,847</div><div class="big-metric-label">Casos este mes</div><div class="big-metric-delta">+22%</div></div>
+          <div class="big-metric"><div class="big-metric-val blue">4.1</div><div class="big-metric-label">Calificación prom.</div><div class="big-metric-delta">⭐⭐⭐⭐</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOLICITUDES -->
+    <div id="page-solicitudes" class="page">
+      <div class="page-header">
+        <div class="page-title"><h1>Gestión de Solicitudes — Cemaco</h1><p>83 solicitudes hoy · 9 requieren atención inmediata</p></div>
+        <button class="btn-primary" onclick="openNewTicketModal()">+ Nueva</button>
+      </div>
+      <div class="filters-row">
+        <button class="filter-tab active" onclick="filterTickets('todos',this)">Todos <span class="filter-count">12</span></button>
+        <button class="filter-tab" onclick="filterTickets('urgente',this)">Urgente <span class="filter-count">3</span></button>
+        <button class="filter-tab" onclick="filterTickets('pendiente',this)">Pendiente <span class="filter-count">6</span></button>
+        <button class="filter-tab" onclick="filterTickets('proceso',this)">En proceso <span class="filter-count">2</span></button>
+        <button class="filter-tab" onclick="filterTickets('resuelto',this)">Resuelto <span class="filter-count">1</span></button>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <table class="ticket-table"><thead><tr><th style="width:14px"></th><th>Solicitud</th><th>Canal</th><th>Asignado a</th><th>Vence</th><th>Estado</th></tr></thead><tbody id="tickets-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- REPORTES -->
+    <div id="page-reportes" class="page">
+      <div class="page-header">
+        <div class="page-title"><h1>Reportes — Cemaco — Mayo 2026</h1><p>Métricas de rendimiento del equipo</p></div>
+        <button class="btn-secondary">↓ Exportar PDF</button>
+      </div>
+      <div class="reports-grid">
+        <div class="rep-card"><div class="rep-val" style="color:var(--red2)">1,847</div><div class="rep-label">Solicitudes totales</div><div class="rep-delta" style="color:var(--red2)">+22% vs abril</div></div>
+        <div class="rep-card"><div class="rep-val" style="color:var(--green)">82%</div><div class="rep-label">Satisfacción CSAT</div><div class="rep-delta" style="color:var(--green)">↑ 3pts vs abril</div></div>
+        <div class="rep-card"><div class="rep-val" style="color:var(--amber)">3.1h</div><div class="rep-label">Tiempo prom. respuesta</div><div class="rep-delta" style="color:var(--red2)">↑ vs meta 2h</div></div>
+        <div class="rep-card"><div class="rep-val" style="color:var(--green)">91%</div><div class="rep-label">Tasa de resolución</div><div class="rep-delta" style="color:var(--green)">↑ 2%</div></div>
+        <div class="rep-card"><div class="rep-val" style="color:var(--red2)">143</div><div class="rep-label">Devoluciones procesadas</div><div class="rep-delta" style="color:var(--red2)">+18 vs abril</div></div>
+        <div class="rep-card"><div class="rep-val" style="color:var(--blue)">56</div><div class="rep-label">Garantías activadas</div><div class="rep-delta" style="color:var(--text2)">Normal</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title">Tendencia mensual 2026</div><div class="bar-chart" id="monthly-chart" style="height:100px"></div></div>
+        <div class="card"><div class="card-title">Rendimiento por agente</div><div id="agent-perf"></div></div>
+      </div>
+    </div>
+
+    <!-- CANALES -->
+    <div id="page-canales" class="page">
+      <div class="page-header">
+        <div class="page-title"><h1>Canales conectados — Cemaco</h1><p>5 canales activos · Todas las integraciones funcionando</p></div>
+        <button class="btn-primary" onclick="showToast('✅','Canal agregado correctamente')">+ Agregar canal</button>
+      </div>
+      <div class="canal-list">
+        <div class="canal-item active-canal" onclick="openCanalChat('WhatsApp Business','whatsapp')"><div class="canal-icon" style="background:rgba(37,211,102,.1)">💬</div><div class="canal-info"><h3>WhatsApp Business</h3><div class="canal-sub">+502 2400-8000 · Cemaco Atención al Cliente</div><div class="canal-stats">312 mensajes este mes · Última actividad: hace 2 min</div></div><div class="canal-status">Activo</div></div>
+        <div class="canal-item active-canal" onclick="openCanalChat('Tienda en línea cemaco.com','tienda')"><div class="canal-icon" style="background:rgba(229,57,53,.1)">🛒</div><div class="canal-info"><h3>Tienda en línea cemaco.com</h3><div class="canal-sub">cemaco.com/contacto · Formulario de pedidos y reclamos</div><div class="canal-stats">208 solicitudes este mes · Última actividad: hace 8 min</div></div><div class="canal-status">Activo</div></div>
+        <div class="canal-item active-canal" onclick="openCanalChat('Correo electrónico','correo')"><div class="canal-icon" style="background:rgba(41,121,255,.1)">📧</div><div class="canal-info"><h3>Correo electrónico</h3><div class="canal-sub">servicioalcliente@cemaco.com.gt</div><div class="canal-stats">166 correos este mes · Última actividad: hace 35 min</div></div><div class="canal-status">Activo</div></div>
+        <div class="canal-item active-canal" onclick="openCanalChat('Facebook / Instagram','fb')"><div class="canal-icon" style="background:rgba(124,77,255,.1)">📱</div><div class="canal-info"><h3>Facebook / Instagram</h3><div class="canal-sub">@CemacoGuatemala · Mensajes directos y comentarios</div><div class="canal-stats">208 menciones este mes · Última actividad: hace 18 min</div></div><div class="canal-status">Activo</div></div>
+        <div class="canal-item active-canal" onclick="openCanalChat('Google Reviews / Maps','google')"><div class="canal-icon" style="background:rgba(255,171,0,.1)">⭐</div><div class="canal-info"><h3>Google Reviews / Maps</h3><div class="canal-sub">6 sucursales vinculadas · Respuesta automática activada</div><div class="canal-stats">47 reseñas nuevas este mes · Calificación prom: 4.1 ★</div></div><div class="canal-status">Activo</div></div>
+        <!-- LINKIFY LIVE CHAT - NEW -->
+        <div class="canal-item active-canal" style="border-color:rgba(0,200,83,.35);background:rgba(0,200,83,.03)" onclick="toggleLiveChatWidget()">
+          <div class="canal-icon" style="background:rgba(0,200,83,.1)">💚</div>
+          <div class="canal-info">
+            <h3>Linkify Chat en Vivo <span style="font-size:10px;background:rgba(0,200,83,.15);color:var(--green);padding:2px 7px;border-radius:8px;margin-left:6px;font-weight:700">NUEVO</span></h3>
+            <div class="canal-sub">Chat en tiempo real · Firebase Realtime Database</div>
+            <div class="canal-stats" id="live-canal-stats">Conectando... · Canal de chat directo con clientes</div>
+          </div>
+          <div class="canal-status" id="live-canal-status">Conectando</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EQUIPO -->
+    <div id="page-equipo" class="page">
+      <div class="page-header">
+        <div class="page-title"><h1>Equipo de atención — Cemaco</h1><p>6 agentes · 4 en línea ahora</p></div>
+        <button class="btn-primary" onclick="showToast('✅','Invitación enviada al nuevo agente')">+ Agregar agente</button>
+      </div>
+      <div class="team-list" id="team-list"></div>
+    </div>
+
+    <!-- ========== MANUALES PAGE (NEW) ========== -->
+    <div id="page-manuales" class="page">
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Manuales de uso — Empleados</h1>
+          <p>Documentación interna · Solo accesible por el equipo de Cemaco</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-secondary" onclick="showToast('📋','3 manuales disponibles para el equipo')">📊 Ver estadísticas</button>
+          <button class="btn-primary" onclick="document.getElementById('upload-trigger').click()">+ Subir manual</button>
+        </div>
+      </div>
+
+      <!-- UPLOAD ZONE -->
+      <div class="manuales-section">
+        <div class="manuales-section-title">📤 Subir nuevo documento</div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('upload-trigger').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <input type="file" id="upload-trigger" accept=".pdf,.docx,.doc,.pptx,.xlsx,.mp4,.png,.jpg" multiple onchange="handleFileUpload(this.files)">
+          <div class="upload-zone-icon">📂</div>
+          <h3>Arrastra archivos aquí o haz clic para seleccionar</h3>
+          <p>Sube manuales, guías de procesos, políticas y materiales de capacitación</p>
+          <div class="upload-types">
+            <span class="upload-type-tag">📄 PDF</span>
+            <span class="upload-type-tag">📝 Word</span>
+            <span class="upload-type-tag">📊 Excel</span>
+            <span class="upload-type-tag">📽 PowerPoint</span>
+            <span class="upload-type-tag">🖼 Imagen</span>
+            <span class="upload-type-tag">🎬 Video</span>
+          </div>
+          <div class="progress-bar" id="upload-progress"><div class="progress-fill" id="upload-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- EXISTING MANUALS -->
+      <div class="manuales-section">
+        <div class="manuales-section-title">📚 Documentos disponibles</div>
+        <div class="manuals-grid" id="manuals-grid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- CATEGORIES -->
+      <div class="manuales-section">
+        <div class="manuales-section-title">🗂 Por categoría</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div class="card" style="cursor:pointer;text-align:center;padding:20px 16px" onclick="showToast('📂','Categoría: Atención al cliente')">
+            <div style="font-size:28px;margin-bottom:8px">🎧</div>
+            <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">Atención al cliente</div>
+            <div style="font-size:11px;color:var(--text3)">2 documentos</div>
+          </div>
+          <div class="card" style="cursor:pointer;text-align:center;padding:20px 16px" onclick="showToast('📂','Categoría: Procesos internos')">
+            <div style="font-size:28px;margin-bottom:8px">⚙️</div>
+            <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">Procesos internos</div>
+            <div style="font-size:11px;color:var(--text3)">1 documento</div>
+          </div>
+          <div class="card" style="cursor:pointer;text-align:center;padding:20px 16px" onclick="showToast('📂','Categoría: Garantías y devoluciones')">
+            <div style="font-size:28px;margin-bottom:8px">🔄</div>
+            <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">Garantías y devoluciones</div>
+            <div style="font-size:11px;color:var(--text3)">0 documentos</div>
+          </div>
+          <div class="card" style="cursor:pointer;text-align:center;padding:20px 16px;border-style:dashed" onclick="showToast('➕','Nueva categoría creada')">
+            <div style="font-size:28px;margin-bottom:8px">➕</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text3);margin-bottom:3px">Nueva categoría</div>
+            <div style="font-size:11px;color:var(--text3)">Agregar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- TICKET PANEL -->
+<div id="ticket-panel">
+  <div class="tp-header">
+    <div style="flex:1"><div id="tp-title" style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px"></div><div id="tp-meta" style="font-size:11px;color:var(--text3)"></div></div>
+    <button class="tp-close" onclick="closeTicketPanel()">✕</button>
+  </div>
+  <div class="tp-body">
+    <div><div class="tp-section-title">Detalles</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="tp-field"><label>Canal</label><p id="tp-canal"></p></div>
+        <div class="tp-field"><label>Estado</label><p id="tp-status"></p></div>
+        <div class="tp-field"><label>Asignado a</label><p id="tp-agent"></p></div>
+        <div class="tp-field"><label>Vence</label><p id="tp-vence"></p></div>
+      </div>
+    </div>
+    <div><div class="tp-section-title">Conversación</div><div class="tp-messages" id="tp-messages"></div></div>
+    <div><div class="tp-section-title">Acciones rápidas</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="resolveTicket()">✓ Resolver</button>
+        <button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="showToast('👤','Ticket reasignado a Diego Morales')">↗ Reasignar</button>
+        <button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="markUrgent()">🚨 Urgente</button>
+      </div>
+    </div>
+  </div>
+  <div class="tp-reply">
+    <div class="tp-section-title" style="margin-bottom:6px">Responder</div>
+    <div class="reply-input-wrap"><textarea class="reply-input" id="tp-reply-input" placeholder="Escribe tu respuesta al cliente..."></textarea></div>
+    <div class="reply-actions">
+      <button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="showToast('💾','Nota interna guardada')">📝 Nota interna</button>
+      <div style="flex:1"></div>
+      <button class="btn-primary" style="font-size:12px;padding:7px 14px" onclick="sendReply()">Enviar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- CANAL CHAT PANEL -->
+<div id="canal-chat">
+  <div class="cc-header"><div><div class="cc-title" id="cc-title">WhatsApp Business</div><div class="cc-sub" id="cc-sub">Conversaciones activas</div></div><button class="cc-close" onclick="closeCanalChat()">✕</button></div>
+  <div class="cc-body">
+    <div class="cc-contacts" id="cc-contacts"></div>
+    <div class="cc-msgs-area">
+      <div class="cc-msgs" id="cc-msgs"></div>
+      <div class="cc-input-area">
+        <textarea class="cc-textarea" id="cc-input" placeholder="Escribe un mensaje..."></textarea>
+        <button class="btn-primary" style="padding:8px 14px;font-size:12px;white-space:nowrap" onclick="sendCanalMessage()">Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW TICKET MODAL -->
+<div class="modal-overlay" id="new-ticket-modal">
+  <div class="modal">
+    <h2>Nueva Solicitud</h2>
+    <div class="modal-field"><label>Cliente</label><input type="text" id="nt-client" placeholder="Nombre del cliente"></div>
+    <div class="modal-field"><label>Asunto</label><input type="text" id="nt-subject" placeholder="Describe el problema o consulta"></div>
+    <div class="modal-field"><label>Canal</label><select id="nt-canal"><option>WhatsApp</option><option>Correo</option><option>Tienda online</option><option>Redes</option><option>Teléfono</option></select></div>
+    <div class="modal-field"><label>Asignar a</label><select id="nt-agent"><option>Sin asignar</option><option>Luisa Ramírez</option><option>Diego Morales</option><option>Fernanda Cruz</option><option>José Aquino</option><option>Valeria Paz</option></select></div>
+    <div class="modal-field"><label>Prioridad</label><select id="nt-priority"><option value="pendiente">Normal</option><option value="urgente">Urgente</option><option value="proceso">En proceso</option></select></div>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeNewTicketModal()">Cancelar</button><button class="btn-primary" onclick="createTicket()">Crear Solicitud</button></div>
+  </div>
+</div>
+
+<!-- CLIENT PORTAL MODAL -->
+<div class="modal-overlay" id="client-portal-modal">
+  <div class="modal" id="client-portal-modal" style="width:560px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h2 style="margin:0">🔗 Portal de Cliente en Vivo</h2>
+      <button class="tp-close" onclick="document.getElementById('client-portal-modal').classList.remove('open')" style="font-size:20px">✕</button>
+    </div>
+    <div style="background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:14px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:22px">💚</div>
+      <div><div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:2px">Chat en tiempo real activo</div><div style="font-size:12px;color:var(--text2)">Los mensajes se sincronizan instantáneamente en todos los dispositivos</div></div>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">Enlace del portal para clientes:</div>
+    <div class="client-link-box">
+      <div class="client-link-url" id="portal-url">Generando enlace...</div>
+      <button class="btn-secondary" style="font-size:11px;padding:5px 10px;white-space:nowrap" onclick="copyPortalLink()">📋 Copiar</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
+      <div class="qr-placeholder" id="qr-canvas">📱</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px">Escanea el QR o comparte el enlace</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">El cliente abre el enlace en su dispositivo, escribe su nombre y puede chatear directamente con el agente en tiempo real.</div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn-primary" style="font-size:11px;padding:6px 12px" onclick="openClientWindow()">🔗 Abrir portal en nueva pestaña</button>
+          <button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="shareViaWhatsApp()">📱 Compartir por WhatsApp</button>
+          <button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="shareViaEmail()">📧 Compartir por correo</button>
+        </div>
+      </div>
+    </div>
+    <div class="portal-steps">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px">Cómo funciona:</div>
+      <div class="portal-step"><div class="step-num">1</div><div class="step-text"><h5>Comparte el enlace</h5><p>Envía el enlace al cliente por WhatsApp, correo o cualquier medio</p></div></div>
+      <div class="portal-step"><div class="step-num">2</div><div class="step-text"><h5>El cliente se conecta</h5><p>El cliente abre el enlace en cualquier dispositivo y escribe su nombre</p></div></div>
+      <div class="portal-step"><div class="step-num">3</div><div class="step-text"><h5>Chat en tiempo real</h5><p>Los mensajes aparecen aquí en la plataforma y el agente puede responder</p></div></div>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;color:var(--text3)">ID de sesión: <span style="font-family:'DM Mono',monospace;color:var(--text2)" id="session-id-display">—</span></div>
+      <button class="btn-primary" onclick="document.getElementById('client-portal-modal').classList.remove('open')">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE CHAT WIDGET (Agent view of incoming live chats) -->
+<div class="live-chat-widget" id="live-chat-widget">
+  <div class="lcw-header">
+    <div><h4>Chat en Vivo</h4><p id="lcw-client-name">Cliente conectado</p></div>
+    <button class="lcw-close" onclick="document.getElementById('live-chat-widget').classList.remove('open')">✕</button>
+  </div>
+  <div class="lcw-body" id="lcw-messages"></div>
+  <div class="lcw-input-area">
+    <input class="lcw-input" id="lcw-input" placeholder="Responder al cliente..." onkeydown="if(event.key==='Enter')sendLiveReply()">
+    <button class="lcw-send" onclick="sendLiveReply()">→</button>
+  </div>
+</div>
+
+<!-- FAB -->
+<button id="chat-fab" onclick="toggleLiveChatWidget()" title="Chat en vivo">
+  💬
+  <span id="chat-fab-badge">0</span>
+</button>
+
+<!-- TOAST -->
+<div id="toast"><span id="toast-icon" class="toast-icon"></span><span id="toast-msg"></span></div>
+
+<script>
+// =============================================
+//  CHAT EN VIVO — Ably Realtime
+//  Funciona entre dispositivos distintos (móvil, PC, tablet, etc.)
+//  Agente: esta página | Cliente: cualquier dispositivo con el enlace
+// =============================================
+
+const ABLY_KEY = '2fz-yA.yX2dqQ:mbjAAfCri_n5omF9OgY6hxz3CADjOcIDec3xaEITNBs';
+
+const SESSION_ID = (() => {
+  try {
+    return localStorage.getItem('linkify_session') || ('linkify-' + Math.random().toString(36).substr(2,9));
+  } catch(e) {
+    return 'linkify-' + Math.random().toString(36).substr(2,9);
+  }
+})();
+try { localStorage.setItem('linkify_session', SESSION_ID); } catch(e) {}
+
+let liveMessages = [];
+let liveClientCount = 0;
+let unreadLiveCount = 0;
+let liveClientName = 'Cliente';
+let ablyAgent = null;
+let agentChannel = null;
+
+// ---- AGENTE: arranque ----
+async function initLiveChat() {
+  setLiveStatus('demo');
+  updateLiveCounters(0);
+  document.getElementById('lcw-client-name').textContent = 'Esperando cliente...';
+
+  try {
+    ablyAgent = new Ably.Realtime({ key: ABLY_KEY });
+    agentChannel = ablyAgent.channels.get('linkify-chat-' + SESSION_ID);
+
+    // Escuchar mensajes del cliente
+    agentChannel.subscribe('client_connect', (msg) => {
+      liveClientName = msg.data.name || 'Cliente';
+      liveClientCount++;
+      updateLiveCounters(liveClientCount);
+      document.getElementById('lcw-client-name').textContent = liveClientName;
+      setLiveStatus('online');
+      showNewMsgNotif(liveClientName, 'Se ha conectado al chat');
+      showToast('💚', liveClientName + ' se conectó al chat en vivo');
+      // Confirmar al cliente que el agente está listo
+      agentChannel.publish('agent_ready', { agentName: 'Luisa Ramírez' });
+    });
+
+    agentChannel.subscribe('client_message', (msg) => {
+      addLiveMessage(msg.data.text, 'incoming', msg.data.name || liveClientName);
+      updateLiveBadge(++unreadLiveCount);
+      showNewMsgNotif(msg.data.name || liveClientName, msg.data.text);
+    });
+
+    agentChannel.subscribe('client_disconnect', (msg) => {
+      liveClientCount = Math.max(0, liveClientCount - 1);
+      updateLiveCounters(liveClientCount);
+      if (liveClientCount === 0) {
+        setLiveStatus('demo');
+        document.getElementById('lcw-client-name').textContent = 'Esperando cliente...';
+      }
+      showToast('🔴', (msg.data.name || 'Cliente') + ' se desconectó');
+    });
+
+    ablyAgent.connection.on('connected', () => {
+      const el = document.getElementById('firebase-status');
+      if (el) { el.className = 'conn-badge online'; el.textContent = '● Ably conectado'; }
+    });
+
+  } catch(e) {
+    console.error('Error Ably:', e);
+    showToast('⚠️', 'Error al conectar con Ably');
+  }
+}
+
+function setLiveStatus(status) {
+  const el = document.getElementById('firebase-status');
+  if (!el) return;
+  if (status === 'online') {
+    el.className = 'conn-badge online';
+    el.textContent = '● Chat en vivo activo';
+    document.getElementById('live-canal-status').textContent = 'Activo';
+    document.getElementById('live-canal-stats').textContent = `${liveClientCount} cliente(s) en línea · Chat directo activo`;
+  } else {
+    el.className = 'conn-badge online';
+    el.textContent = '● Ably listo';
+    document.getElementById('live-canal-status').textContent = 'En espera';
+    document.getElementById('live-canal-stats').textContent = 'Esperando clientes · Comparte el enlace para iniciar';
+  }
+}
+
+function addLiveMessage(text, direction, sender) {
+  const msgs = document.getElementById('lcw-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (direction === 'incoming' ? 'incoming' : 'outgoing');
+  div.innerHTML = `<div>${text}</div><div class="msg-time">${sender} · Ahora</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  liveMessages.push({text, direction, sender});
+}
+
+function sendLiveReply() {
+  const input = document.getElementById('lcw-input');
+  const msg = input.value.trim();
+  if (!msg || !agentChannel) return;
+  addLiveMessage(msg, 'outgoing', 'Luisa R.');
+  input.value = '';
+  agentChannel.publish('agent_message', { text: msg, agentName: 'Luisa Ramírez' });
+  showToast('✉️', 'Mensaje enviado al cliente');
+}
+
+function toggleLiveChatWidget() {
+  const w = document.getElementById('live-chat-widget');
+  w.classList.toggle('open');
+  if (w.classList.contains('open')) {
+    unreadLiveCount = 0;
+    updateLiveBadge(0);
+  }
+}
+
+function updateLiveBadge(n) {
+  const badge = document.getElementById('chat-fab-badge');
+  badge.textContent = n;
+  badge.style.display = n > 0 ? 'block' : 'none';
+}
+
+function updateLiveCounters(n) {
+  const lc = document.getElementById('live-count');
+  const ltb = document.getElementById('live-clients-tb');
+  const lcs = document.getElementById('live-canal-stats');
+  if (lc) lc.textContent = n + (n===1?' cliente':' clientes');
+  if (ltb) ltb.textContent = n + ' en vivo';
+  if (lcs) lcs.textContent = `${n} cliente${n!==1?'s':''} en línea ahora`;
+}
+
+let notifTimer;
+function showNewMsgNotif(name, text) {
+  const notif = document.getElementById('new-msg-notif');
+  if (!notif) return;
+  notif.textContent = `💬 ${name}: "${text.substring(0,35)}${text.length>35?'...':''}"`;
+  notif.classList.add('show');
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(()=>notif.classList.remove('show'), 4000);
+}
+
+// =============================================
+//  PORTAL CLIENTE — Enlace compartible entre dispositivos
+// =============================================
+function openClientPortal() {
+  const modal = document.getElementById('client-portal-modal');
+  modal.classList.add('open');
+  const portalUrl = window.location.href.split('?')[0] + '?mode=cliente&session=' + SESSION_ID;
+  document.getElementById('portal-url').textContent = portalUrl;
+  document.getElementById('session-id-display').textContent = SESSION_ID;
+  renderQR(SESSION_ID);
+}
+
+function renderQR(sessionId) {
+  const qr = document.getElementById('qr-canvas');
+  const url = window.location.href.split('?')[0] + '?mode=cliente&session=' + sessionId;
+  qr.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(url)}&bgcolor=161921&color=e8eaf0&margin=4" style="border-radius:8px;width:90px;height:90px" onerror="this.outerHTML='<div style=\\'font-size:28px;text-align:center\\'>📱</div>'">`;
+}
+
+function copyPortalLink() {
+  const url = document.getElementById('portal-url').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(()=>showToast('📋','Enlace copiado al portapapeles'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('📋','Enlace copiado');
+  }
+}
+
+function openClientWindow() {
+  const url = document.getElementById('portal-url').textContent;
+  window.open(url, '_blank');
+  document.getElementById('client-portal-modal').classList.remove('open');
+  showToast('🔗','Portal de cliente abierto en nueva pestaña');
+}
+
+function shareViaWhatsApp() {
+  const url = document.getElementById('portal-url').textContent;
+  const text = encodeURIComponent(`Hola, puedes contactarnos directamente en: ${url}`);
+  window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+function shareViaEmail() {
+  const url = document.getElementById('portal-url').textContent;
+  window.open(`mailto:?subject=Chat directo con Cemaco&body=Puedes contactarnos en: ${url}`, '_blank');
+}
+
+// =============================================
+//  MODO CLIENTE — Se activa si URL tiene ?mode=cliente
+//  Funciona desde cualquier dispositivo con el enlace
+// =============================================
+function initClientMode(sessionId) {
+  document.body.innerHTML = '';
+  document.title = 'Chat en Vivo — Cemaco Guatemala';
+
+  const style = document.createElement('style');
+  style.textContent = `
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'DM Sans',sans-serif;background:#0f1117;color:#e8eaf0;height:100vh;display:flex;align-items:center;justify-content:center}
+    .client-wrap{width:100%;max-width:420px;height:100vh;display:flex;flex-direction:column;background:#161921;border-left:1px solid #2a3045;border-right:1px solid #2a3045}
+    .client-header{background:#e53935;padding:16px 20px;display:flex;align-items:center;gap:12px}
+    .client-header-av{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .client-header-info h3{font-size:14px;font-weight:600;color:#fff}
+    .client-header-info p{font-size:11px;color:rgba(255,255,255,.7)}
+    .client-status{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.8)}
+    .client-status-dot{width:7px;height:7px;background:#00c853;border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .client-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#1e2330}
+    .c-msg{padding:9px 13px;border-radius:10px;max-width:80%;font-size:13px;line-height:1.5}
+    .c-msg.incoming{background:#2a3045;color:#e8eaf0;align-self:flex-start;border-radius:10px 10px 10px 2px}
+    .c-msg.outgoing{background:#e53935;color:#fff;align-self:flex-end;border-radius:10px 10px 2px 10px}
+    .c-msg-time{font-size:10px;opacity:.6;margin-top:3px}
+    .client-input-area{padding:14px 16px;border-top:1px solid #2a3045;background:#161921;display:flex;gap:8px;align-items:flex-end}
+    .client-input{flex:1;background:#1e2330;border:1px solid #2a3045;border-radius:10px;padding:10px 14px;color:#e8eaf0;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:none;min-height:44px;max-height:100px}
+    .client-input:focus{border-color:#e53935}
+    .client-input::placeholder{color:#555e78}
+    .client-send{background:#e53935;border:none;border-radius:10px;padding:11px 16px;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0}
+    .client-send:hover{background:#c62828}
+    .login-wrap{width:100%;max-width:380px;padding:32px;background:#161921;border:1px solid #2a3045;border-radius:16px;text-align:center}
+    .login-logo{font-size:36px;margin-bottom:12px}
+    .login-wrap h2{font-size:20px;font-weight:600;color:#fff;margin-bottom:6px}
+    .login-wrap p{font-size:13px;color:#8b93a8;margin-bottom:24px}
+    .login-input{width:100%;background:#1e2330;border:1px solid #2a3045;border-radius:10px;padding:11px 14px;color:#e8eaf0;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;margin-bottom:12px}
+    .login-input:focus{border-color:#e53935}
+    .login-btn{width:100%;background:#e53935;border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+    .login-btn:hover{background:#c62828}
+    .login-badge{display:inline-block;background:rgba(0,200,83,.12);color:#00c853;border:1px solid rgba(0,200,83,.25);font-size:11px;padding:4px 12px;border-radius:20px;margin-bottom:16px}
+    .typing{display:none;align-self:flex-start;padding:9px 13px;background:#2a3045;border-radius:10px;font-size:12px;color:#8b93a8}
+    .typing.show{display:block}
+    .conn-badge-client{background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.2);border-radius:8px;padding:6px 12px;margin-bottom:12px;font-size:11px;color:#00c853;text-align:center;display:inline-block}
+  `;
+  document.head.appendChild(style);
+
+  let clientName = '';
+  let ablyClient = null;
+  let clientChannel = null;
+
+  // Login screen
+  const loginHTML = `
+    <div class="login-wrap" id="login-screen">
+      <div class="login-logo">💬</div>
+      <div class="login-badge">● Chat en vivo disponible</div>
+      <h2>Cemaco — Atención al Cliente</h2>
+      <p>Ingresa tu nombre para iniciar el chat en tiempo real con un agente de Cemaco.</p>
+      <input class="login-input" id="client-name-input" placeholder="Tu nombre completo" maxlength="40">
+      <button class="login-btn" id="login-btn">Iniciar chat →</button>
+    </div>`;
+  document.body.innerHTML = loginHTML;
+
+  document.getElementById('login-btn').onclick = startChat;
+  document.getElementById('client-name-input').addEventListener('keydown', e => { if(e.key==='Enter') startChat(); });
+
+  function startChat() {
+    const nameInput = document.getElementById('client-name-input');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) { nameInput && (nameInput.style.borderColor='#e53935'); return; }
+    clientName = name;
+
+    // Conectar a Ably
+    ablyClient = new Ably.Realtime({ key: ABLY_KEY });
+    clientChannel = ablyClient.channels.get('linkify-chat-' + sessionId);
+
+    ablyClient.connection.on('connected', () => {
+      renderChatUI();
+      // Avisar al agente que el cliente se conectó
+      clientChannel.publish('client_connect', { name: clientName });
+    });
+
+    ablyClient.connection.on('failed', () => {
+      nameInput.style.borderColor = '#e53935';
+      nameInput.placeholder = 'Error de conexión. Intenta de nuevo.';
+    });
+  }
+
+  function renderChatUI() {
+    document.body.innerHTML = `
+      <div class="client-wrap">
+        <div class="client-header">
+          <div class="client-header-av">🏪</div>
+          <div class="client-header-info" style="flex:1">
+            <h3>Cemaco Guatemala</h3>
+            <p>Servicio al cliente</p>
+          </div>
+          <div class="client-status"><div class="client-status-dot"></div>En línea</div>
+        </div>
+        <div class="client-msgs" id="client-msgs">
+          <div class="c-msg incoming"><div>Hola <strong>${clientName}</strong>, gracias por contactarnos. Un agente te atenderá en breve. ¿En qué podemos ayudarte?</div><div class="c-msg-time">Cemaco · Ahora</div></div>
+        </div>
+        <div class="typing" id="typing-ind">Agente está escribiendo...</div>
+        <div class="client-input-area">
+          <textarea class="client-input" id="client-msg-input" placeholder="Escribe tu mensaje..."></textarea>
+          <button class="client-send" id="client-send-btn">→</button>
+        </div>
+      </div>`;
+
+    document.getElementById('client-send-btn').onclick = sendClientMsg;
+    document.getElementById('client-msg-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendClientMsg(); }
+    });
+
+    // Escuchar respuestas del agente
+    clientChannel.subscribe('agent_message', (msg) => {
+      appendClientMsg(msg.data.text, 'incoming', msg.data.agentName || 'Agente');
+      document.getElementById('typing-ind') && document.getElementById('typing-ind').classList.remove('show');
+    });
+
+    clientChannel.subscribe('agent_ready', () => {
+      // Agente confirmó conexión
+    });
+
+    window.addEventListener('beforeunload', () => {
+      clientChannel.publish('client_disconnect', { name: clientName });
+    });
+  }
+
+  function sendClientMsg() {
+    const input = document.getElementById('client-msg-input');
+    if (!input || !clientChannel) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+    appendClientMsg(msg, 'outgoing', clientName);
+    clientChannel.publish('client_message', { text: msg, name: clientName });
+    input.value = '';
+  }
+
+  function appendClientMsg(text, dir, sender) {
+    const msgs = document.getElementById('client-msgs');
+    if (!msgs) return;
+    const div = document.createElement('div');
+    div.className = 'c-msg ' + dir;
+    div.innerHTML = `<div>${text}</div><div class="c-msg-time">${sender} · Ahora</div>`;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+}
+
+// =============================================
+//  MANUALES - DATOS Y LÓGICA
+// =============================================
+let manuals = [
+  {id:1, title:'Manual de Atención al Cliente', desc:'Guía completa de procesos, SLAs y manejo de solicitudes.', icon:'📋', color:'rgba(41,121,255,.1)', size:'2.4 MB', date:'2026-05-10', type:'PDF', category:'atención', badge:''},
+  {id:2, title:'Protocolo de Devoluciones y Garantías', desc:'Políticas, plazos y pasos para procesar devoluciones de productos.', icon:'🔄', color:'rgba(0,200,83,.1)', size:'1.8 MB', date:'2026-05-22', type:'PDF', category:'garantías', badge:'new'},
+  {id:3, title:'Guía de uso — Plataforma Linkify', desc:'Tutorial paso a paso de todas las funciones del sistema.', icon:'🚀', color:'rgba(229,57,53,.1)', size:'3.1 MB', date:'2026-06-01', type:'PDF', category:'sistema', badge:'new'},
+];
+
+function renderManuals() {
+  const grid = document.getElementById('manuals-grid');
+  if (!grid) return;
+  grid.innerHTML = manuals.map(m => `
+    <div class="manual-card">
+      <div class="manual-card-icon" style="background:${m.color}">${m.icon}</div>
+      ${m.badge==='new'?'<span class="manual-badge new" style="position:absolute;top:12px;right:12px">Nuevo</span>':''}
+      <h4>${m.title}</h4>
+      <p>${m.desc}</p>
+      <div class="manual-card-meta">
+        <span>${m.type} · ${m.size} · ${m.date}</span>
+        <div class="manual-card-actions">
+          <button class="btn-secondary" style="font-size:10px;padding:4px 10px" onclick="event.stopPropagation();viewManual(${m.id})">👁 Ver</button>
+          <button class="btn-secondary" style="font-size:10px;padding:4px 10px" onclick="event.stopPropagation();downloadManual(${m.id})">↓</button>
+          <button class="manual-del-btn" onclick="event.stopPropagation();deleteManual(${m.id})">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('badge-manuales').textContent = manuals.length;
+}
+
+function viewManual(id) {
+  const m = manuals.find(x=>x.id===id);
+  if(m) showToast('👁', `Abriendo: ${m.title}`);
+}
+
+function downloadManual(id) {
+  const m = manuals.find(x=>x.id===id);
+  if(m) showToast('⬇️', `Descargando: ${m.title} (${m.size})`);
+}
+
+function deleteManual(id) {
+  manuals = manuals.filter(x=>x.id!==id);
+  renderManuals();
+  showToast('🗑️', 'Manual eliminado');
+}
+
+// FILE UPLOAD
+function handleFileUpload(files) {
+  if (!files || files.length === 0) return;
+  const prog = document.getElementById('upload-progress');
+  const fill = document.getElementById('upload-fill');
+  prog.style.display = 'block';
+  fill.style.width = '0%';
+  
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 20;
+    if (progress >= 100) {
+      progress = 100;
+      clearInterval(interval);
+      setTimeout(() => {
+        prog.style.display = 'none';
+        fill.style.width = '0%';
+        
+        Array.from(files).forEach(file => {
+          const ext = file.name.split('.').pop().toUpperCase();
+          const icons = {PDF:'📄',DOCX:'📝',DOC:'📝',PPTX:'📊',XLSX:'📈',PNG:'🖼',JPG:'🖼',MP4:'🎬'};
+          manuals.unshift({
+            id: Date.now(),
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            desc: `Subido el ${new Date().toLocaleDateString('es-GT')} · ${file.name}`,
+            icon: icons[ext] || '📁',
+            color: 'rgba(124,77,255,.1)',
+            size: (file.size/1024/1024).toFixed(1) + ' MB',
+            date: new Date().toISOString().split('T')[0],
+            type: ext,
+            category: 'nuevo',
+            badge: 'new'
+          });
+        });
+        renderManuals();
+        showToast('✅', `${files.length} archivo${files.length>1?'s':''} subido${files.length>1?'s':''} correctamente`);
+      }, 400);
+    }
+    fill.style.width = progress + '%';
+  }, 120);
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  document.getElementById('upload-zone').classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('dragover');
+  handleFileUpload(e.dataTransfer.files);
+}
+
+// =============================================
+//  ESTADO REACTIVO CENTRALIZADO
+// =============================================
+
+// Estado global de métricas — toda acción lo actualiza
+const appState = {
+  solicitudesHoy: 83,
+  sinAtender: 9,
+  resueltasHoy: 61,
+  tiempoRespuesta: 3.1,
+  satisfaccionCSAT: 82,
+  tasaResolucion: 91,
+  casasMes: 1847,
+  calificacionProm: 4.1,
+  // Datos del gráfico semanal (último valor = hoy)
+  weekData: [{d:'Sáb',v:62},{d:'Dom',v:41},{d:'Lun',v:78},{d:'Mar',v:95},{d:'Mié',v:88},{d:'Jue',v:77},{d:'Hoy',v:83}],
+  // Datos del gráfico mensual
+  monthlyData: [{d:'Ene',v:1102},{d:'Feb',v:1240},{d:'Mar',v:1418},{d:'Abr',v:1513},{d:'May',v:1847}],
+};
+
+// Flash animado para valores que cambiaron
+function flashElement(el) {
+  if (!el) return;
+  el.style.transition = 'color 0.15s';
+  const orig = el.style.color || '';
+  el.style.color = '#00c853';
+  setTimeout(() => { el.style.color = orig; }, 600);
+}
+
+// Actualiza todos los dashboards y gráficas en tiempo real
+function updateDashboard() {
+  const s = appState;
+
+  // Recalcular desde el array real de tickets
+  const pending  = tickets.filter(t => t.status !== 'resuelto').length;
+  const resolved = tickets.filter(t => t.status === 'resuelto').length;
+  const urgent   = tickets.filter(t => t.status === 'urgente').length;
+  const inProcess= tickets.filter(t => t.status === 'proceso').length;
+  const total    = tickets.length;
+
+  s.sinAtender   = pending;
+  s.resueltasHoy = resolved;
+  s.solicitudesHoy = Math.max(s.solicitudesHoy, total);
+  // Ajustar tasa de resolución dinámicamente
+  if (total > 0) s.tasaResolucion = Math.round((resolved / total) * 100);
+
+  // Actualizar valor hoy en gráfica semanal
+  s.weekData[s.weekData.length - 1].v = s.solicitudesHoy;
+  // Actualizar mes en gráfica mensual
+  s.monthlyData[s.monthlyData.length - 1].v = s.casasMes + (total - 12);
+
+  // --- DASHBOARD METRIC CARDS ---
+  const mSol = document.getElementById('m-solicitudes');
+  if (mSol && mSol.textContent != s.solicitudesHoy) { mSol.textContent = s.solicitudesHoy; flashElement(mSol); }
+
+  // "Sin atender" card (2nd metric card)
+  const cards = document.querySelectorAll('#page-dashboard .metric-value');
+  if (cards[1] && cards[1].textContent != s.sinAtender) { cards[1].textContent = s.sinAtender; flashElement(cards[1]); }
+  if (cards[3] && cards[3].textContent != s.resueltasHoy) { cards[3].textContent = s.resueltasHoy; flashElement(cards[3]); }
+
+  // --- BIG METRICS (CSAT, resolución, casos mes, calificación) ---
+  const bigVals = document.querySelectorAll('#page-dashboard .big-metric-val');
+  if (bigVals[1] && bigVals[1].textContent !== s.tasaResolucion + '%') {
+    bigVals[1].textContent = s.tasaResolucion + '%'; flashElement(bigVals[1]);
+  }
+  if (bigVals[2]) {
+    const casesStr = (s.casasMes + (total - 12)).toLocaleString();
+    if (bigVals[2].textContent !== casesStr) { bigVals[2].textContent = casesStr; flashElement(bigVals[2]); }
+  }
+
+  // --- HEADER de solicitudes ---
+  const solHeader = document.querySelector('#page-solicitudes .page-title p');
+  if (solHeader) solHeader.textContent = `${s.solicitudesHoy} solicitudes hoy · ${urgent} requieren atención inmediata`;
+
+  // --- FILTROS CONTADOR ---
+  const filterCounts = document.querySelectorAll('.filter-tab .filter-count');
+  const counts = [total, urgent, tickets.filter(t=>t.status==='pendiente').length, inProcess, resolved];
+  filterCounts.forEach((el, i) => {
+    if (el && counts[i] !== undefined) el.textContent = counts[i];
+  });
+
+  // --- BADGE sidebar solicitudes ---
+  const badge = document.getElementById('badge-solicitudes');
+  if (badge) badge.textContent = pending;
+
+  // --- SLA barra de resolución ---
+  const slaFills = document.querySelectorAll('.sla-fill');
+  if (slaFills[1]) {
+    slaFills[1].style.width = s.tasaResolucion + '%';
+    const slaLabels = document.querySelectorAll('.sla-label span:last-child');
+    if (slaLabels[1]) { slaLabels[1].textContent = s.tasaResolucion + '%'; flashElement(slaLabels[1]); }
+  }
+
+  // --- REPORTES ---
+  const repVals = document.querySelectorAll('#page-reportes .rep-val');
+  if (repVals[0]) repVals[0].textContent = (s.casasMes + (total - 12)).toLocaleString();
+  if (repVals[2]) repVals[2].textContent = s.tasaResolucion + '%';
+
+  // --- GRÁFICAS ---
+  renderWeekChart();
+  renderMonthlyChart();
+}
+
+// =============================================
+//  DATOS ORIGINALES
+// =============================================
+let tickets = [
+  {id:1,title:'Refrigeradora Samsung entregada con puerta abollada',client:'María Castillo',order:'ORD-2026-88341',canal:'Tienda online',canalColor:'#e53935',agent:'LR',agentName:'Luisa',agentColor:'#e53935',vence:'Hoy',status:'urgente',dot:'red',messages:[{from:'María Castillo',text:'Buenos días, recibí mi refrigeradora con la puerta abollada. Necesito solución urgente.',time:'9:15 AM',out:false},{from:'Luisa R.',text:'Hola María, lamento mucho lo ocurrido. Voy a procesar el cambio de inmediato.',time:'9:22 AM',out:true},{from:'María Castillo',text:'Gracias, ¿cuánto tiempo tomará?',time:'9:25 AM',out:false}]},
+  {id:2,title:'Cobro duplicado en compra de cocina de gas',client:'Lic. Jorge Barrios',order:'ORD-2026-87910',canal:'Correo',canalColor:'#2979ff',agent:null,agentName:'Sin asignar',agentColor:'#555e78',vence:'Hoy',status:'urgente',dot:'red',messages:[{from:'Jorge Barrios',text:'Me aparece un cobro doble en mi tarjeta por la cocina de gas que compré ayer.',time:'8:30 AM',out:false}]},
+  {id:3,title:'Mi pedido lleva 18 días sin llegar — Zona 18',client:'Familia Reyes',order:'ORD-2026-86220',canal:'WhatsApp',canalColor:'#25D366',agent:'DM',agentName:'Diego',agentColor:'#2979ff',vence:'Hoy',status:'urgente',dot:'red',messages:[{from:'Familia Reyes',text:'Hola, ya son 18 días y no ha llegado nuestro pedido.',time:'10:01 AM',out:false},{from:'Diego M.',text:'Estimada familia, revisaré el estado del envío de inmediato.',time:'10:15 AM',out:true}]},
+  {id:4,title:'Solicitud de garantía — lavadora LG deja de funcionar',client:'Doña Carmen Méndez',order:'FAC-2025-44821',canal:'Correo',canalColor:'#2979ff',agent:null,agentName:'Sin asignar',agentColor:'#555e78',vence:'2026-05-23',status:'pendiente',dot:'amber',messages:[{from:'Carmen Méndez',text:'Mi lavadora LG dejó de funcionar a los 8 meses de comprada.',time:'Ayer',out:false}]},
+  {id:5,title:'Producto incorrecto recibido — pedí sartén 28cm, llegó 24cm',client:'Ana Sofía Lima',order:'ORD-2026-87654',canal:'WhatsApp',canalColor:'#25D366',agent:'FC',agentName:'Fernanda',agentColor:'#7c4dff',vence:'2026-05-24',status:'pendiente',dot:'amber',messages:[{from:'Ana Sofía Lima',text:'Pedí una sartén de 28cm y me llegó una de 24cm.',time:'Ayer',out:false},{from:'Fernanda C.',text:'Con gusto realizamos el cambio. Le envío la guía de devolución.',time:'Ayer',out:true}]},
+  {id:6,title:'¿Tienen en stock el colchón Restonic King Size?',client:'Sr. Pablo Monterroso',order:'Consulta',canal:'WhatsApp',canalColor:'#25D366',agent:null,agentName:'Sin asignar',agentColor:'#555e78',vence:'2026-05-25',status:'pendiente',dot:'amber',messages:[{from:'Pablo Monterroso',text:'¿Tienen disponible el colchón Restonic King Size en Miraflores?',time:'Hoy',out:false}]},
+  {id:7,title:'Queja: trato grosero de empleado en sucursal Cayalá',client:'Verónica Sandoval',order:'Sin orden',canal:'Redes',canalColor:'#7c4dff',agent:'LR',agentName:'Luisa',agentColor:'#e53935',vence:'2026-05-23',status:'pendiente',dot:'amber',messages:[{from:'Verónica Sandoval',text:'Quiero hacer una queja formal. Un empleado en Cayalá fue muy grosero conmigo.',time:'Hoy',out:false}]},
+  {id:8,title:'Factura con NIT incorrecto — necesito crédito fiscal',client:'Distribuidora Centroamericana S.A.',order:'FAC-2026-71220',canal:'Correo',canalColor:'#2979ff',agent:'JA',agentName:'José',agentColor:'#00bfa5',vence:'2026-05-23',status:'pendiente',dot:'amber',messages:[{from:'Distribuidora CA',text:'Necesitamos que corrijan el NIT en la factura #FAC-2026-71220.',time:'Ayer',out:false}]},
+  {id:9,title:'¿Puedo aplicar tarjeta de regalo comprada en 2024?',client:'Daniela Fuentes',order:'Gift Card #GC-8821-2024',canal:'Tienda online',canalColor:'#e53935',agent:null,agentName:'Sin asignar',agentColor:'#555e78',vence:'2026-05-26',status:'pendiente',dot:'amber',messages:[{from:'Daniela Fuentes',text:'Tengo una tarjeta de regalo del 2024, ¿todavía la puedo usar?',time:'Hoy',out:false}]},
+  {id:10,title:'Solicitud de cotización para equipar restaurante',client:'Chef Mario García',order:'Consulta',canal:'Correo',canalColor:'#2979ff',agent:'DM',agentName:'Diego',agentColor:'#2979ff',vence:'2026-05-27',status:'proceso',dot:'blue',messages:[{from:'Chef Mario García',text:'Necesito una cotización completa para equipar mi nuevo restaurante.',time:'Ayer',out:false},{from:'Diego M.',text:'Con gusto. ¿Cuántos puestos tiene el restaurante?',time:'Hoy',out:true}]},
+  {id:11,title:'Entrega de microondas programada para el sábado',client:'Roberto Cifuentes',order:'ORD-2026-85901',canal:'WhatsApp',canalColor:'#25D366',agent:'FC',agentName:'Fernanda',agentColor:'#7c4dff',vence:'2026-05-28',status:'proceso',dot:'blue',messages:[{from:'Roberto Cifuentes',text:'¿Me pueden confirmar la entrega del microondas para el sábado?',time:'Hoy',out:false},{from:'Fernanda C.',text:'Confirmado. La entrega está programada para el sábado entre 9am-1pm.',time:'Hoy',out:true}]},
+  {id:12,title:'Devolución procesada — estufa eléctrica devuelta',client:'Karina López',order:'ORD-2026-81234',canal:'Tienda online',canalColor:'#e53935',agent:'LR',agentName:'Luisa',agentColor:'#e53935',vence:'2026-05-20',status:'resuelto',dot:'grey',messages:[{from:'Karina López',text:'Ya devolví la estufa. ¿Cuándo se acredita el reembolso?',time:'Hace 3 días',out:false},{from:'Luisa R.',text:'El reembolso se acreditará en 3-5 días hábiles. Caso cerrado con éxito.',time:'Hace 2 días',out:true}]},
+];
+
+const canalContacts = {
+  whatsapp:[{name:'María Castillo',preview:'Refrigeradora abollada...',time:'9:15 AM',msgs:[{text:'Hola, recibí mi refrigeradora con la puerta abollada.',out:false,time:'9:15 AM'},{text:'Procesaré el cambio de inmediato.',out:true,time:'9:22 AM'},{text:'¿Cuánto tiempo tomará?',out:false,time:'9:25 AM'}]},{name:'Familia Reyes',preview:'18 días sin mi pedido...',time:'10:01 AM',msgs:[{text:'Ya son 18 días y no llega nuestro pedido.',out:false,time:'10:01 AM'},{text:'Revisaré el estado del envío ahora.',out:true,time:'10:15 AM'}]},{name:'Pablo Monterroso',preview:'¿Stock colchón King?',time:'10:45 AM',msgs:[{text:'¿Tienen el colchón Restonic King Size en Miraflores?',out:false,time:'10:45 AM'}]}],
+  tienda:[{name:'Ana Sofía Lima',preview:'Sartén 28cm llegó 24cm',time:'Ayer',msgs:[{text:'Pedí sartén 28cm y llegó una de 24cm.',out:false,time:'Ayer'},{text:'Realizamos el cambio de inmediato.',out:true,time:'Ayer'}]},{name:'Daniela Fuentes',preview:'Tarjeta de regalo 2024',time:'Hoy',msgs:[{text:'¿Todavía puedo usar mi tarjeta de regalo del 2024?',out:false,time:'Hoy'}]}],
+  correo:[{name:'Jorge Barrios',preview:'Cobro duplicado...',time:'8:30 AM',msgs:[{text:'Me aparece un cobro doble en mi tarjeta.',out:false,time:'8:30 AM'}]},{name:'Dist. Centroamericana',preview:'NIT incorrecto...',time:'Ayer',msgs:[{text:'Necesitamos corregir el NIT en la factura.',out:false,time:'Ayer'}]},{name:'Chef Mario García',preview:'Cotización restaurante',time:'Ayer',msgs:[{text:'Necesito cotización para equipar mi restaurante.',out:false,time:'Ayer'},{text:'¿Cuántos puestos tiene el restaurante?',out:true,time:'Hoy'}]}],
+  fb:[{name:'Verónica Sandoval',preview:'Queja trato grosero...',time:'Hoy',msgs:[{text:'Quiero hacer una queja formal por el trato en Cayalá.',out:false,time:'Hoy'}]},{name:'@cemacofan2026',preview:'¿Nueva colección?',time:'Hoy',msgs:[{text:'¿Ya llegó la nueva colección de cocinas?',out:false,time:'Hoy'}]}],
+  google:[{name:'Sucursal Miraflores ⭐4.2',preview:'Reseña nueva',time:'Hoy',msgs:[{text:'Excelente servicio, me ayudaron muy bien con la garantía.',out:false,time:'Hoy'}]},{name:'Sucursal Cayalá ⭐3.1',preview:'Reseña negativa',time:'Ayer',msgs:[{text:'El servicio al cliente fue muy malo.',out:false,time:'Ayer'}]}],
+};
+
+let currentFilter = 'todos';
+let activeContact = null;
+let currentCanalKey = null;
+
+// INIT
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  const days = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('today-date').textContent = `${days[now.getDay()].charAt(0).toUpperCase()+days[now.getDay()].slice(1)} ${now.getDate()} de ${months[now.getMonth()]}, ${now.getFullYear()} · Hola, Luisa 👋`;
+  renderWeekChart();
+  renderMonthlyChart();
+  renderAgentPerf();
+  renderTickets('todos');
+  renderTeam();
+  renderManuals();
+
+  // Detectar si esta pestaña es el portal del cliente
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('mode') === 'cliente' && urlParams.get('session')) {
+    initClientMode(urlParams.get('session'));
+    return;
+  }
+
+  initLiveChat();
+});
+
+// Create notification element
+const notifEl = document.createElement('div');
+notifEl.id = 'new-msg-notif';
+notifEl.className = 'new-msg-notif';
+document.body.appendChild(notifEl);
+
+function navigate(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(el) el.classList.add('active');
+  closeTicketPanel();
+  closeCanalChat();
+}
+
+function renderWeekChart() {
+  const data = appState.weekData;
+  const max = Math.max(...data.map(x=>x.v));
+  const el = document.getElementById('week-chart');
+  if (el) el.innerHTML = data.map(d => `<div class="bar-col"><span class="bar-val">${d.v}</span><div class="bar${d.d==='Hoy'?' today':''}" style="height:${Math.round(d.v/max*70)}px"></div><label>${d.d}</label></div>`).join('');
+  const weekTitle = document.querySelector('#page-dashboard .grid-3 .card .card-title');
+  if (weekTitle) weekTitle.textContent = `Solicitudes últimos 7 días — total: ${data.reduce((a,b)=>a+b.v,0)}`;
+}
+
+function renderMonthlyChart() {
+  const data = appState.monthlyData;
+  const max = Math.max(...data.map(x=>x.v));
+  const el = document.getElementById('monthly-chart');
+  if (el) el.innerHTML = data.map(d => `<div class="bar-col"><span class="bar-val">${d.v.toLocaleString()}</span><div class="bar${d.d==='May'?' today':''}" style="height:${Math.round(d.v/max*90)}px"></div><label>${d.d}</label></div>`).join('');
+}
+
+function renderAgentPerf() {
+  const agents = [{n:'L. Ramírez',pct:94,c:'var(--green)'},{n:'D. Morales',pct:88,c:'var(--blue)'},{n:'F. Cruz',pct:81,c:'var(--blue)'},{n:'J. Aquino',pct:74,c:'var(--amber)'},{n:'V. Paz',pct:66,c:'var(--amber)'},{n:'R. Lima',pct:58,c:'var(--red2)'}];
+  document.getElementById('agent-perf').innerHTML = agents.map(a => `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--text2)">${a.n}</span><span style="font-family:'DM Mono',monospace;color:${a.c}">${a.pct}%</span></div><div class="eff-bar"><div class="eff-fill" style="width:${a.pct}%;background:${a.c}"></div></div></div>`).join('');
+}
+
+function renderTickets(filter) {
+  currentFilter = filter;
+  const filtered = filter === 'todos' ? tickets : tickets.filter(t => t.status === filter);
+  document.getElementById('tickets-tbody').innerHTML = filtered.map(t => `
+    <tr onclick="openTicket(${t.id})" data-id="${t.id}">
+      <td><div class="urgente-dot ${t.dot}"></div></td>
+      <td><div class="t-title">${t.title}</div><div class="t-sub">${t.client} · ${t.order}</div></td>
+      <td><div class="t-canal"><span class="t-canal-dot" style="background:${t.canalColor}"></span>${t.canal}</div></td>
+      <td>${t.agent?`<div style="display:flex;align-items:center;gap:6px"><div class="avatar" style="background:${t.agentColor}">${t.agent}</div><span style="font-size:12px;color:var(--text2)">${t.agentName}</span></div>`:`<span style="font-size:12px;color:var(--text3)">Sin asignar</span>`}</td>
+      <td style="font-size:12px;color:${t.vence==='Hoy'?'var(--red2)':'var(--text2)'}">${t.vence==='Hoy'?'⚠ ':' '}${t.vence}</td>
+      <td><span class="status-badge ${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span></td>
+    </tr>`).join('');
+}
+
+function filterTickets(filter, el) {
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTickets(filter);
+}
+
+function openTicket(id) {
+  const t = tickets.find(x => x.id === id);
+  if (!t) return;
+  document.querySelectorAll('#tickets-tbody tr').forEach(r => r.classList.remove('selected'));
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  if (row) row.classList.add('selected');
+  document.getElementById('tp-title').textContent = t.title;
+  document.getElementById('tp-meta').textContent = `${t.client} · ${t.order}`;
+  document.getElementById('tp-canal').textContent = t.canal;
+  document.getElementById('tp-status').innerHTML = `<span class="status-badge ${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span>`;
+  document.getElementById('tp-agent').textContent = t.agentName;
+  document.getElementById('tp-vence').textContent = t.vence;
+  const msgsEl = document.getElementById('tp-messages');
+  msgsEl.innerHTML = t.messages.map(m => `<div class="msg ${m.out?'outgoing':'incoming'}"><div>${m.text}</div><div class="msg-time">${m.from} · ${m.time}</div></div>`).join('');
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+  document.getElementById('ticket-panel').classList.add('open');
+  document.getElementById('tp-reply-input').dataset.ticketId = id;
+}
+
+function closeTicketPanel() { document.getElementById('ticket-panel').classList.remove('open'); }
+
+function sendReply() {
+  const input = document.getElementById('tp-reply-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  const id = parseInt(input.dataset.ticketId);
+  const t = tickets.find(x => x.id === id);
+  if (t) {
+    t.messages.push({from:'Luisa R.',text:msg,time:'Ahora',out:true});
+    const msgsEl = document.getElementById('tp-messages');
+    msgsEl.innerHTML += `<div class="msg outgoing"><div>${msg}</div><div class="msg-time">Luisa R. · Ahora</div></div>`;
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+  input.value = '';
+  showToast('✉️','Respuesta enviada al cliente');
+  updateDashboard();
+}
+
+function resolveTicket() {
+  const id = parseInt(document.getElementById('tp-reply-input').dataset.ticketId);
+  const t = tickets.find(x => x.id === id);
+  if (t) {
+    t.status = 'resuelto'; t.dot = 'grey';
+    renderTickets(currentFilter);
+    updateDashboard();
+    document.getElementById('tp-status').innerHTML = `<span class="status-badge resuelto">Resuelto</span>`;
+  }
+  showToast('✅','Ticket marcado como resuelto');
+}
+
+function markUrgent() {
+  const id = parseInt(document.getElementById('tp-reply-input').dataset.ticketId);
+  const t = tickets.find(x => x.id === id);
+  if (t && t.status !== 'resuelto') {
+    t.status = 'urgente'; t.dot = 'red';
+    renderTickets(currentFilter);
+    updateDashboard();
+    document.getElementById('tp-status').innerHTML = `<span class="status-badge urgente">Urgente</span>`;
+  }
+  showToast('🚨','Ticket marcado como urgente');
+}
+
+function renderTeam() {
+  const team = [
+    {init:'LR',name:'Luisa Ramírez',role:'Supervisora CX',cases:9,eff:94,color:'#e53935',online:true},
+    {init:'DM',name:'Diego Morales',role:'Agente Senior',cases:7,eff:88,color:'#2979ff',online:true},
+    {init:'FC',name:'Fernanda Cruz',role:'Agente',cases:6,eff:81,color:'#7c4dff',online:true},
+    {init:'JA',name:'José Aquino',role:'Agente',cases:5,eff:74,color:'#00bfa5',online:false},
+    {init:'VP',name:'Valeria Paz',role:'Agente',cases:4,eff:66,color:'#ff9800',online:true},
+    {init:'RL',name:'Rodrigo Lima',role:'Agente Nuevo',cases:2,eff:58,color:'#e53935',online:false},
+  ];
+  const effColor = v => v>=85?'var(--green)':v>=70?'var(--blue)':v>=60?'var(--amber)':'var(--red2)';
+  document.getElementById('team-list').innerHTML = team.map(a => `
+    <div class="team-item" onclick="showToast('👤','${a.name} · ${a.cases} casos activos · Eficiencia ${a.eff}%')">
+      <div class="team-av" style="background:${a.color}">${a.init}</div>
+      <div class="team-info"><div style="display:flex;align-items:center"><h3>${a.name}</h3><span class="team-role">${a.role}</span></div><div class="team-cases">${a.cases} casos activos · Eficiencia: <span style="color:${effColor(a.eff)};font-weight:600">${a.eff}%</span></div></div>
+      <div class="team-eff"><div class="team-eff-label"><span style="font-size:11px;color:var(--text3)">Eficiencia</span><span style="color:${effColor(a.eff)};font-family:'DM Mono',monospace">${a.eff}%</span></div><div class="eff-bar"><div class="eff-fill" style="width:${a.eff}%;background:${effColor(a.eff)}"></div></div></div>
+      <div class="online-badge ${a.online?'on':'off'}">${a.online?'En línea':'Fuera'}</div>
+    </div>`).join('');
+}
+
+function openCanalChat(name, key) {
+  currentCanalKey = key;
+  const contacts = canalContacts[key] || [];
+  document.getElementById('cc-title').textContent = name;
+  document.getElementById('cc-sub').textContent = `${contacts.length} conversaciones activas`;
+  document.getElementById('cc-contacts').innerHTML = contacts.map((c,i) => `<div class="cc-contact${i===0?' active':''}" onclick="selectContact(${i},'${key}')" id="contact-${key}-${i}"><div class="cc-contact-name">${c.name}</div><div class="cc-contact-preview">${c.preview}</div><div class="cc-contact-time">${c.time}</div></div>`).join('');
+  if (contacts.length > 0) renderCanalMsgs(contacts[0].msgs);
+  activeContact = 0;
+  document.getElementById('canal-chat').classList.add('open');
+}
+
+function selectContact(i, key) {
+  document.querySelectorAll('.cc-contact').forEach(c => c.classList.remove('active'));
+  const el = document.getElementById(`contact-${key}-${i}`);
+  if (el) el.classList.add('active');
+  renderCanalMsgs(canalContacts[key][i].msgs);
+  activeContact = i;
+}
+
+function renderCanalMsgs(msgs) {
+  const el = document.getElementById('cc-msgs');
+  el.innerHTML = msgs.map(m => `<div class="msg ${m.out?'outgoing':'incoming'}"><div>${m.text}</div><div class="msg-time">${m.time}</div></div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendCanalMessage() {
+  const input = document.getElementById('cc-input');
+  const msg = input.value.trim();
+  if (!msg || currentCanalKey === null || activeContact === null) return;
+  canalContacts[currentCanalKey][activeContact].msgs.push({text:msg, out:true, time:'Ahora'});
+  renderCanalMsgs(canalContacts[currentCanalKey][activeContact].msgs);
+  input.value = '';
+  showToast('✉️','Mensaje enviado');
+}
+
+function closeCanalChat() { document.getElementById('canal-chat').classList.remove('open'); }
+
+function openNewTicketModal() { document.getElementById('new-ticket-modal').classList.add('open'); }
+function closeNewTicketModal() { document.getElementById('new-ticket-modal').classList.remove('open'); }
+
+function createTicket() {
+  const client = document.getElementById('nt-client').value.trim();
+  const subject = document.getElementById('nt-subject').value.trim();
+  if (!client || !subject) { showToast('⚠️','Completa todos los campos requeridos'); return; }
+  const canal = document.getElementById('nt-canal').value;
+  const agent = document.getElementById('nt-agent').value;
+  const priority = document.getElementById('nt-priority').value;
+  const canalColors = {WhatsApp:'#25D366',Correo:'#2979ff','Tienda online':'#e53935',Redes:'#7c4dff',Teléfono:'#00bfa5'};
+  tickets.unshift({id:tickets.length+1,title:subject,client,order:`ORD-2026-${Math.floor(Math.random()*10000+80000)}`,canal,canalColor:canalColors[canal]||'#555',agent:agent==='Sin asignar'?null:agent.split(' ').map(x=>x[0]).join('').slice(0,2),agentName:agent,agentColor:'#2979ff',vence:'2026-06-07',status:priority,dot:priority==='urgente'?'red':priority==='proceso'?'blue':'amber',messages:[{from:client,text:subject,time:'Ahora',out:false}]});
+  appState.solicitudesHoy++;
+  appState.casasMes++;
+  closeNewTicketModal();
+  renderTickets(currentFilter);
+  updateDashboard();
+  document.getElementById('nt-client').value='';
+  document.getElementById('nt-subject').value='';
+  showToast('✅',`Solicitud creada para ${client}`);
+}
+
+function handleSearch(val) {
+  if (!val) { renderTickets(currentFilter); return; }
+  const el = document.getElementById('page-solicitudes');
+  if (!el.classList.contains('active')) return;
+  const filtered = tickets.filter(t => t.title.toLowerCase().includes(val.toLowerCase()) || t.client.toLowerCase().includes(val.toLowerCase()));
+  document.getElementById('tickets-tbody').innerHTML = filtered.map(t => `<tr onclick="openTicket(${t.id})" data-id="${t.id}"><td><div class="urgente-dot ${t.dot}"></div></td><td><div class="t-title">${t.title}</div><div class="t-sub">${t.client} · ${t.order}</div></td><td><div class="t-canal"><span class="t-canal-dot" style="background:${t.canalColor}"></span>${t.canal}</div></td><td>${t.agent?`<div style="display:flex;align-items:center;gap:6px"><div class="avatar" style="background:${t.agentColor}">${t.agent}</div><span style="font-size:12px;color:var(--text2)">${t.agentName}</span></div>`:`<span style="font-size:12px;color:var(--text3)">Sin asignar</span>`}</td><td style="font-size:12px;color:var(--text2)">${t.vence}</td><td><span class="status-badge ${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span></td></tr>`).join('');
+}
+
+let toastTimer;
+function showToast(icon, msg) {
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>document.getElementById('toast').classList.remove('show'), 3000);
+}
+
+document.getElementById('cc-input').addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendCanalMessage();} });
+document.getElementById('tp-reply-input').addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendReply();} });
+</script>
+</body>
+</html>
